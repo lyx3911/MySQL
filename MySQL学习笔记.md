@@ -1,0 +1,586 @@
+# MySQL学习笔记
+
+**root password：**lyxsql
+
+
+
+要搞清楚数据库、数据表之间的关系。
+
+## windows下shell连接数据库
+
+要先打开MySQL Notifer，启动数据库
+
+然后打开MySQL shell，默人是js脚本，执行`\connect root@127.0.0.1`，之后输入密码，连接并以root身份登录。
+
+## Linux下命令行登录
+
+启动MySQL服务：
+
+```
+sudo service mysql start
+```
+
+root用户登录
+
+```
+mysql -u root
+```
+
+
+
+
+
+## 一些命令：
+
+`show databases;` 查看有哪些数据库
+
+`use <数据库名>;`没有书名号，连接数据库（使用这个数据库）
+
+`show tables;`查看目前使用的数据库中有哪些数据表
+
+`exit;`退出；
+
+### show:
+
+`show columns from <表名>;`查看这张表中的字段名、数据类型、是否允许null，键信息、默认值以及其他信息。
+
+`show status;`用于显示广泛的服务器状态信息
+
+`show create database`/ `show create table`显示创建特定数据库或表的sql语句
+
+`show grants`显示授予用户的安全限制
+
+
+
+### create:
+
+`create database library;`创建一个名为library的数据库（library 可以换成其他名字）
+
+(创建之后要use library才能对这个新建的数据库进行进一步操作)
+
+创建表
+
+```sql
+create table <表的名字>
+(
+<列名1>  数据类型(长度)
+<列名2>  数据类型(长度)
+<列名2>  数据类型(长度)
+)engine=<引擎名>;
+```
+
+如果仅想在表不存在时创建，在表名后给出if not exists
+
+数据类型后面还可以跟上属性：如：not null, null, auto_increment
+
+#### 主键：
+
+在创建表的时候定义，`primary key(列名)` （create table括号中的最后一行）,也可以在创建表之后定义。顾名思义是这个行的唯一标识。
+
+可以创建由多个列组成的主键`primary key(列名1, 列名2)`
+
+#### auto_increment:
+
+类似于execl中每添加一行就自动加1（自动编号）
+
+每个表只允许一个auto_increment列
+
+#### default:
+
+默认值`<列名1> 数据类型(长度) default 1` 意思是列1的值在插入行时如果没有给定，就设为1。
+
+#### 引擎：
+
+- InnoDB
+- MEMORY
+- MyISAM
+
+可以不写，则默认使用MyISAM。‘
+
+#### 更改表的结构
+
+- alter table
+
+  添加列`alter table <表名> add <列名> 数据类型(长度);`
+
+  删除列`alter table <表名> drop column <列名>;`
+
+- drop table
+
+  `drop table <表名>;`删除表
+
+- rename table
+
+  `rename table <old name> to <new name>;`
+
+
+
+#### 常用数据类型：
+
+| 数据类型 | 大小(字节) | 用途             | 格式              |
+| -------- | ---------- | ---------------- | ----------------- |
+| INT      | 4          | 整数             |                   |
+| FLOAT    | 4          | 单精度浮点数     |                   |
+| DOUBLE   | 8          | 双精度浮点数     |                   |
+| ENUM     | --         | 单选,比如性别    | ENUM('a','b','c') |
+| SET      | --         | 多选             | SET('1','2','3')  |
+| DATE     | 3          | 日期             | YYYY-MM-DD        |
+| TIME     | 3          | 时间点或持续时间 | HH:MM:SS          |
+| YEAR     | 1          | 年份值           | YYYY              |
+| CHAR     | 0~255      | 定长字符串       |                   |
+| VARCHAR  | 0~255      | 变长字符串       |                   |
+| TEXT     | 0~65535    | 长文本数据       |                   |
+
+
+
+### 检索数据
+
+#### select：
+
+`select <列名1>, <列名2>, <列名3> from <表名>; ` 查询这些列的内容
+
+`select * from <表名>`查询这张表所有列的内容
+
+#### distinct关键字：
+
+仅返回不同的值：
+
+```sql
+select distinct vent_id from products;
+```
+
+#### limit子句：
+
+limit x （检索最前面的x行，如果不足x行，返回所有）
+
+limit x,y （检索第x行开始的y行，表的首行是第0行）
+
+#### order 排序子句：
+
+`order by <列名>`
+
+可以有很多列名，排的越前，优先级越高。
+
+- desc 降序
+- asc 升序（默认）
+
+```sql
+order by prod_price desc,prod_name #按价格从大到小排列，如果相同按名称排列
+```
+
+#### where
+
+指定搜索条件`where prod_name='fuses'`
+
+**在同时使用where和order by时，order by 要位于where之后**
+
+常用操作符：
+
+| 操作符  |        说明        |
+| :-----: | :----------------: |
+|    =    |        等于        |
+|   <>    |       不等于       |
+|   !=    |       不等于       |
+|    <    |        小于        |
+|   <=    |      小于等于      |
+|    >    |        大于        |
+|   \>=   |      大于等于      |
+| between | 在指定的两个值之间 |
+| is null |   具有null值的列   |
+
+注：`where prod_price between 5 and 10`
+
+`where prod_price IS NULL`
+
+##### 组合where子句：
+
+- and 且
+
+- or 或 
+
+- in 
+
+  指定条件范围`where vend_id in(1002,1003)`
+
+  是恰好等于这个值，而不是一个范围
+
+  `where prod_price in(10,50)`检索的是价格为10和50的，而不是10-50之间的。
+
+- not 否定
+
+优先级可以用括号来组合
+
+##### like:
+
+- %通配符
+
+  匹配任意个字符`where prod_name like 'jet%'`
+
+- _ 通配符
+
+  匹配一个字符
+
+##### 正则表达式：
+
+关键字：regexp 
+
+检索方法同其他地方的正则表达式用法。
+
+- 匹配基本字符 `where prod_name regexp '.000'` 搜索prod_name中有000的
+- or匹配 `where prod_name regexp '1000|2000'`
+- 匹配几个字符之一 `where prod_name regexp '[123] ton'`[]有点像or的用法
+- 匹配范围 `where prod_name regexp '[1-5] ton'`
+- 匹配特殊字符 `where prod_name regexp '\\.'`需要加上\\\（双反斜杠）作为转义字符
+- 匹配字符类
+- 匹配多个实例
+- 定位符
+
+#### 计算字段
+
+计算字段本来不存储在数据库中，是在执行select时创建的。
+
+##### 拼接concat()
+
+```sql
+select concat(vend_name,' ', vend_country) from vendors;
+```
+
+concat拼接串
+
+如果想给拼接好的串命名用as <新的名字>
+
+```sql
+select concat(vend_name,' ', vend_country)  as vend_title
+from vendors;
+```
+
+其他在拼接中常用的函数
+
+- Rtrim()去掉右边空格
+- LTrim()去掉左边空格
+- Trim()去掉两边的空格
+
+##### 算术计算
+
+```sql
+SELECT prod_id,
+quantity, item_price,
+quantity*item_price as expanded_price
+from orderitems
+where order_num = 20005;
+```
+
+#### 数据处理函数
+
+1. 
+
+- 文本处理
+- 日期和时间处理
+- 数值处理
+
+以上直接查表
+
+#### 汇总数据
+
+`select AVG(prod_price) as avg_price from products;`
+
+- AVG() 返回某列的平均值，列名作为参数必须给出，忽略null值
+- COUNT() 返回某列的行数，count(*)对表中行的数目进行计算，count(column)对特定列中非null的数目进行计算
+- MAX() 返回某列的最大值
+- MIN() 返回某列的最小值
+- SUM() 返回某列值之和
+
+##### 组合使用示例
+
+```sql
+SELECT COUNT(*) as num_items,
+min(prod_price) as price_min,
+max(prod_price) as price_mas,
+sum(prod_price) as price_sum
+from products;
+```
+
+#### 分组数据
+
+把数据分成多个逻辑组，对每个逻辑组进行计算。
+
+创建分组： group by
+
+例子：
+
+```sql
+select vend_id, /*注意这里要加逗号*/
+count(*) as num_prods
+from products
+group by vend_id;
+```
+
+意思就是在product表中，按照vend_id的不同，进行分组，计算每组的数量。
+
+注意：group by要出现在where之后，order by之前。
+
+`group by vend_id WITH ROLLUP`可以得到每个分组的汇总。
+
+可以用having来过滤分组，having 的作用有点像where，就是having是对group进行筛选，而where是对行进行筛选。 其操作和where是一样的。
+
+```sql
+/*选出数量大于等于2的cust_id分组*/
+select cust_id, count(*) as orders
+from orders
+group by cust_id
+having count(*)>=2;
+```
+
+where在数据分组前进行过滤，having在分组后对组进行过滤。
+
+##### 小结：select子句顺序
+
+|   子句   |         说明         |     是否必须使用     |
+| :------: | :------------------: | :------------------: |
+|  select  | 要返回的列或者表达式 |          是          |
+|   from   |    从哪张表中检索    | 仅在表中选取数据时用 |
+|  where   |       行级过滤       |          否          |
+| group by |       分组说明       |          否          |
+|  having  |       组级过滤       |          否          |
+| order by |     输出排序顺序     |          否          |
+|  limit   |     要检索的行数     |          否          |
+
+
+
+#### 子查询
+
+多重查询，例子
+
+```sql
+select cust_id
+from orders
+where order_num in (
+SELECT order_num
+from orderitems
+where prod_id = 'TNT2');
+```
+
+使用子查询时需要注意限制有歧义的列名，必要时可以用`<表名>.<列名>`这样的写法
+
+
+
+#### 联结表
+
+关系表达而设计就是要保证把信息分解成多个表，一类数据一个表，然后通过常用的值（关系relationship）互相关联。
+
+**外键：**某个表中的一列，包含另一个表的主键值。
+
+```sql
+SELECT vend_name, prod_name, prod_price
+from vendors, products
+WHERE vendors.vend_id = products.vend_id
+order by vend_name, prod_name;
+```
+
+where子句非常重要，保证了联结条件。如果没有联结条件的话返回的结果是笛卡尔积，检索出的行的数目是第一个表中的行数乘以第二个表中的行数。
+
+(理解为同时检索两个表？)
+
+其实也可以使用inner join（内部联结的方法来查询）
+
+```sql
+SELECT vend_name, prod_name, prod_price
+from vendors inner join products
+on vendors.vend_id = products.vend_id;
+```
+
+**首选使用inner join语法**
+
+联结多个表时，可以在where子句限定联结条件时使用and。
+
+```sql
+SELECT cust_name, cust_contact 
+from customers, orders, orderitems 
+where customers.cust_id = orders.cust_id 
+and orderitems.order_num = orders.order_num 
+and prod_id = 'TNT2';
+```
+
+有时候子查询和内部联结是可以互相转换的。
+
+#### 创建高级联结
+
+使用表的别名，相当于给表起一个暂时的新名字，使用起来比较方便，但是不能像列的别名一样返回给客户机，只能在查询的时候使用。
+
+```sql
+SELECT cust_name, cust_contact
+from customers as c, orders as o, orderitems as oi
+where c.cust_id = o.cust_id
+and oi.order_num = o.order_num
+and prod_id = 'TNT2';
+```
+
+- 自联结
+- 自然联结
+- 外部联结
+
+
+
+#### 组合查询
+
+union操作符
+
+例如，想要查询所有价格小于等于5的所有物品，并且还想包括供应商1001和1002生产的所有物品。
+
+- 用where子句查询
+
+```sql
+SELECT vend_id,prod_id, prod_price 
+from products 
+where prod_price <= 5 
+or vend_id in (1001,1002);
+```
+
+- 用union进行组合查询
+
+```sql
+SELECT vend_id, prod_id, prod_price
+from products
+where prod_price <= 5
+union
+SELECT vend_id, prod_id, prod_price
+from products
+where vend_id in (1001,1002);
+```
+
+两者的查询结果是一样的。
+
+使用union all可以不取消相同的行，比如有一行的prod_price小于5 而且vend_id = 1001，那么使用union all就会出现两次这个行，但是使用union或者where or，那就会自动去掉重复的行。
+
+如果要对union的结果进行排序，要在最后加上order by，整个查询只能有一个order by。
+
+
+
+#### 全文本搜索
+
+注意：MyISAM引擎支持全文本搜索，而InnoDB引擎不支持全文本搜索。
+
+在创建表的时候可以指定fulltext，但是建议先导入数据然后再修改表创建fulltext数据。建立索引之后数据库会自动进行维护。
+
+在建立索引之后，使用Match() 和Against()执行全文本搜索，其中Match指定被搜索的列，Against指定搜索表达式。
+
+```sql
+SELECT note_text 
+from productnotes 
+where match(note_text) AGAINST('rabbit');
+```
+
+##### 查询扩展：
+
+比如说你想找到左右提到anvils的注释，然后再想找出与你的搜索可能有关的其他行，即使他们不包含关键词anvils。
+
+```sql
+SELECT note_text from productnotes 
+where MATCH(note_text) AGAINST('anvils' With query expansion);
+```
+
+##### 布尔文本搜索：
+
+- 要匹配的词
+- 要排斥的词（如果包含这个词就不返回）
+- 排列提示（指定某些词更重要，更重要的词等级更高）
+- 表达式分组
+- 其他
+
+```sql
+SELECT note_text
+from productnotes
+where match(note_text) AGAINST('heavy -rope*'  in boolean mode);
+/*查询含有heavy 但是没有以rope开头的单词的行*/
+```
+
+布尔操作符
+
+| 布尔操作符 |                             说明                             |
+| :--------: | :----------------------------------------------------------: |
+|     +      |                       包含，词必须存在                       |
+|     -      |                      排除，词必须不出现                      |
+|     >      |                      包含，且增加等级值                      |
+|     <      |                      包含，且减小等级值                      |
+|     ()     |                       词组组成子表达式                       |
+|     ~      |                      取消一个值的排序值                      |
+|     *      |                          词尾通配符                          |
+|     ""     | 定义一个短语（与单个词的列表不一样，它匹配整个短语以便包含或排除这个短语） |
+
+
+
+
+
+### 插入数据
+
+#### insert：
+
+向表中插入数据：
+
+```sql
+insert into <表的名字>(列名a，列名b,列名c) values(value1,value2,value3);
+```
+
+如果要插入多行数据:
+
+```sql
+insert into <表名>(列名1,列名2,...,列名n)
+values(
+	value1,
+	value2,
+	..
+	valuen 
+	/* 第一行value的值 */
+),
+(
+	value1,
+	value2,
+	..
+	valuen 
+	/* 第2行value的值 */
+);
+```
+
+#### update 和 delete：
+
+使用时一定要记得加上where子句，限定条件，不然很容易不小心删掉或覆盖了所有的行。
+
+- 要更新/删除的表
+- 列名和新值
+- 确定要更新行的过滤条件
+
+```sql
+UPDATE customers /*customers是表名*/
+set cust_name = 'The Fudds',
+cust_email = 'elmer@fudd.com'
+where cust_id = 10005;
+```
+
+如果仅是想删除这行某个列的值，直接set为null，如果要把整行删除掉，再使用delete
+
+```sql;
+delete from customers
+where cust_id = 10006;
+```
+
+如果想要快速删除整张表的所有行，建议使用truncate table。
+
+
+
+## 其他使用技巧
+
+#### 使用视图
+
+#### 使用存储过程
+
+#### 使用游标
+
+#### 使用触发器
+
+#### 管理事务处理
+
+#### 全球化和本地化
+
+#### 安全管理
+
+#### 数据库维护
