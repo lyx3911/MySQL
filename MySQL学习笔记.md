@@ -95,7 +95,9 @@ create table <表的名字>
 - MEMORY
 - MyISAM
 
-可以不写，则默认使用MyISAM。‘
+可以不写，则默认使用MyISAM。
+
+注意：外键不能跨引擎。
 
 #### 更改表的结构
 
@@ -104,6 +106,8 @@ create table <表的名字>
   添加列`alter table <表名> add <列名> 数据类型(长度);`
 
   删除列`alter table <表名> drop column <列名>;`
+
+  尽量在开始设计表的时候就设计好，后期尽量不要改动表的结构。
 
 - drop table
 
@@ -571,11 +575,266 @@ where cust_id = 10006;
 
 #### 使用视图
 
+例子：假如要查询customers，orders和orderitems表中的custname和custcontact的内容，其中要导出prod_id为TNT2的数据，那按照基本的做法，应该是
+
+```sql
+SELECT cust_name, cust_contact
+from customers, orders, orderitems
+where customers.cust_id = orders.cust_id
+and orderitems.order_num = orders.order_num
+and prod_id = 'TNT2';
+```
+
+其中前四行可以看作构建了新的表，最后一行在这个新表中进行查询。如果可以构建名为productcustomers的虚拟表，后面还要查询时就会方便很多。
+
+创建视图：
+
+```sql
+create or replace view productcustomers as 
+SELECT cust_name, cust_contact, prod_id 
+from customers, orders, orderitems 
+where customers.cust_id = orders.cust_id 
+and orderitems.order_num = orders.order_num;
+```
+
+- 创建视图 create view <视图名字>
+- 删除视图 drop view <视图名字>
+- 更新视图 create or replace view <视图名字>
+
+对视图的查询和计算等和table一样。
+
+比如:
+
+```sql
+SELECT cust_name, cust_contact ,prod_id
+from productcustomers
+where prod_id = 'FB';
+```
+
+视图的常见应用：
+
+- 重用SQL语句
+- 简化复杂的SQL操作，在编写擦汗寻后，可以方便地宠用它而不必知道他的基本查询细节
+- 使用表的组成部分而不是整个表
+- 保护数据。可以给用户授予表的特定部分的访问权限而不是整个表的访问权限。
+- 更改数据格式和表示。视图可以返回与底层表的表示和格式不同的数据。
+
+**视图是可以使用更新的，insert，update，delete语句都是可以用的，更新视图原表也会被更新，所以如果不能确定被更新的基数据，则无法更新视图**
+
+- 分组（group by和having）
+- 联结
+- 子查询
+- 并
+- 聚集函数（max，min，count等）
+- distinct
+- 导出计算列
+
+所以一般不更新视图，仅用来做数据查询。
+
+
+
 #### 使用存储过程
+
+存储过程简单说就是为以后的使用而保存的一条或多条MySQL语句的集合，可以将其视为批文件。
+
+MySQL称存储过程的执行为调用，有点像编程里面的函数。
+
+**创建存储过程**
+
+```sql
+delimiter //
+CREATE procedure productpricing()
+begin
+SELECT AVG(prod_price) as priceaverage
+FROM products;
+end //
+delimiter ;
+```
+
+其中delimiter语句定义了命令行实用程序的语句分隔符。如果用的不是命令行实用程序，可以不管这个。
+
+**调用存储过程**
+
+```sql
+call productpricing();
+/*call <函数名>*/
+```
+
+**删除调用过程：**`drop procedure productpricing;`
+
+也可以使用变量来进行数据临时存储
+
+```sql
+use demo;
+drop procedure productpricing; /*先删除原来的*/
+
+/*创建存储过程*/
+delimiter //  
+create procedure productpricing(
+out pl decimal(8,2),
+out ph decimal(8,2),
+out p decimal(8,2)
+)
+begin
+	select min(prod_price)
+	into pl
+	from products;
+    select max(prod_price)
+    into ph
+    from products;
+    select avg(prod_price)
+    into p
+    from products;
+end //
+delimiter ;
+
+/*调用存储过程*/
+call productpricing(@pricelow, @pricehigh,@priceaverage);
+/*查看变量值*/
+select @pricelow, @pricehigh, @priceaverage;
+```
+
+创建智能存储过程
+
+- 使用if等语句
+- 注释
+- 输入输出参数
+- 局部变量定义：declare语句
+
+```sql
+-- name: ordertotal
+-- parameters: onumber = order number
+-- taxable = 0 if not taxable, 1 if taxable
+-- ototal  = order total variable
+
+delimiter //
+create procedure ordertotal(
+	in onumber int,
+	in taxable boolean,
+	out ototal decimal(8,2) 
+)
+begin
+	-- declare variable for total
+    declare total decimal(8,2);
+    -- declare tax percentage,默认为6%
+    declare taxrate int default 6;
+    
+    -- get the order total
+    select sum(item_price*quantity)
+    from orderitems
+    where order_num = onumber
+    into total;
+    
+    -- is taxable?
+    if taxable then
+		-- yes, so add taxrate to the total
+        select total + (total/100*taxrate) 
+        into total;
+	end if;
+    
+    select total into ototal;
+end//
+
+delimiter ;
+
+call ordertotal(20005,0,@total);
+select @total;
+```
+
+**检查存储过程**
+
+```sql
+--检查存储过程
+show create procedure <name>; 
+--获得包括何时创建，谁创建等详细信息的存储过程列表
+show procedure status like '<过滤模式>'
+```
+
+
 
 #### 使用游标
 
+有时，需要在检索出来的行中前进或后退一行或者多行，这就需要使用游标，游标是一个存储在MySQL服务器上的数据库查询，它不是一条select语句，而是检索出来的数据集，在存储了游标时候，应用程序可以根据需要滚动或浏览其中的数据。
+
+- 创建游标
+- 打开游标
+- 使用游标
+- 关闭游标
+
+```sql
+delimiter //
+drop procedure processorders;
+
+create procedure processorders()
+begin
+	declare done boolean default 0; 
+	declare o int;    -- 检索当前行的order列
+    declare t decimal(8,2); -- 存储每个订单的合计
+    
+    -- 定义游标
+	declare ordernumbers cursor for
+    select order_num from orders;
+    
+    -- 当repeat由于没有更多的行供循环而不能继续时，出现这个条件
+    declare continue handler for sqlstate '02000' set done=1;
+    
+    -- 创建了一个新表 保存存储过程生成的结果
+    create table if not exists ordertotals
+    (order_num int, total decimal(8,2));
+    
+    open ordernumbers;
+    repeat 
+		fetch ordernumbers into o;
+        call ordertotal(o,1,t); -- 调用之前就创建好的存储过程
+        insert into ordertotals(order_num,total) 
+        values(o,t);
+	until done end repeat; --repeat 反复执行 直到done为真
+    
+    close ordernumbers;
+    
+end //
+delimiter ;
+
+-- 该存储过程不返回数据，但是能创建和填充另一个表
+select * from ordertotals;
+```
+
+
+
 #### 使用触发器
+
+希望语句在某些事件发生时被执行。
+
+触发器是MySQL响应一下任意语句而自动执行的一条MySQL语句
+
+- delete
+- insert
+- update
+
+创建触发器时，要给4条信息
+
+- 唯一的触发器名（每张表唯一，最好做到这个数据库中唯一）
+- 触发器关联的表
+- 触发器应该响应的活动（delete， insert，update）
+- 触发器何时执行
+
+触发器按每个表每个时间每次地定义，每个表每个时间每次只允许一个触发器，因此，每个表最多支持6个触发器（每条insert update delete之前和之后）单一触发器不能与多个事件或多个表关联
+
+**只有表才支持触发器，视图和临时表都不支持**
+
+创建并使用触发器的例子：
+
+```sql
+create trigger neworder after insert on orders
+for each row select new.order_num into @asd;
+
+insert into orders(order_date,cust_id)
+values(now(),10001);
+
+select @asd;
+```
+
+
 
 #### 管理事务处理
 
