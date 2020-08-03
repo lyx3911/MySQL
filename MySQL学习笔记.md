@@ -2,9 +2,9 @@
 
 **root password：**lyxsql
 
-
-
 要搞清楚数据库、数据表之间的关系。
+
+[toc]
 
 ## windows下shell连接数据库
 
@@ -838,8 +838,135 @@ select @asd;
 
 #### 管理事务处理
 
+InnoDB引擎支持事务处理，而MySAM引擎不支持。 
+
+事务处理用来管理必须成批执行的MySQL操作，以保证数据库不包含不完整的操作结果，保证一组操作不会中途停止，或者不完全执行。
+
+- 事务 transaction 指一组SQL语句
+- 回退 rollback 指撤销指定SQL语句的过程
+- 提交 commit 指将未存储的SQL语句结果写入数据表
+- 保留点 savepoint 指事务处理中设置的临时占位符，可以对它发布回退。
+
+下面是一个删除ordertotals表中order_num为20005的行的一个例子，但是在事务结束之后又回退了这个操作。（set SQL_SAFE_UPDATES是因为在安全模式下无法对非主键条件进行更新，所以暂时解除了安全模式）；
+
+```sql
+use demo;
+SET SQL_SAFE_UPDATES = 0;
+select * from ordertotals;
+start transaction;
+	delete from ordertotals 
+    where order_num = 20005;
+    select * from ordertotals;
+	rollback;
+
+select * from ordertotals;
+set SQL_SAFE_UPDATES = 1;
+```
+
+commit
+
+```sql
+start transaction;
+select * from orderitems;
+select * from orders;
+delete from orderitems where order_num = 20010;
+delete from orders where order_num = 20010;
+commit;
+```
+
+如果两条delete语句中有一句失败，那么都不会执行commit
+
+**当commit结束或者rollback结束之后，事务会自动关闭**
+
+设置保留点：
+
+在复杂的事务中，有时候不需要全部回退，而是回退到合适的位置，那可以设置保留点`savepoint delete1`，delete1为保留点的名字。然后比如要回退到这个保留点则`rollback to delete1`;
+
+也可以将MySQL的自动提交设置为否，这样即使不在事务处理也不会提交`set autocommit=0;`直到autocommit被设置为1。autocommit标志是针对每个连接而不是服务器的。
+
+
+
 #### 全球化和本地化
+
+需要适应不同的字符集来适应不同的排序和检索数据算法。
+
+- 字符集：字母和符号的集合
+- 编码：为某个字符集成员的内部表示
+- 校对：规定字符如何比较的指令集
+
+查看所支持的字符集`show character set;`
+
+查看所支持校对的完整列表 `show collation;`
+
+确定所使用的字符集和校对
+
+```sql
+show variables like 'character%';
+show variables like 'collation%';
+```
+
+在创建表的时候指定字符集和校对
+
+```sql
+create table mytable(
+columnn1 int,
+columnn2 varchar(10)
+) default character set hebrew
+collate hebrew_general_ci;
+```
+
+还可以对列单独指定字符集
+
+```sql
+columnn2 varchar(10) character set latin1 collate latin1_general_ci
+```
+
+
 
 #### 安全管理
 
+创建用户
+
+```sql
+create user lyx identified by 'lyx';
+```
+
+引号里面是密码
+
+删除用户 `drop user lyx;`
+
+查看用户权限 `show grants for lyx;`
+
+设置权限要给出的
+
+- 要授予的权限
+- 被授予访问权限的数据库或表
+- 用户名
+
+```sql
+grant select on demo .* to lyx;
+```
+
+给用户lyx授予对demo数据库进行select(查看)操作的权限。
+
+revoke删除权限。
+
+设置用户口令（登陆密码）
+
+```sql
+set password for lyx = Password('lyx')
+```
+
+
+
 #### 数据库维护
+
+备份 mysqldump，mysqlhotcopy
+
+检查表键是否正确 `analyze table customers;`
+
+针对许多问题对表进行检查 `check table orders, orderitems;`
+
+
+
+#### 改善性能
