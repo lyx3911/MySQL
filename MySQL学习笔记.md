@@ -1,7 +1,5 @@
 # MySQL学习笔记
 
-**root password：**lyxsql
-
 要搞清楚数据库、数据表之间的关系。
 
 [toc]
